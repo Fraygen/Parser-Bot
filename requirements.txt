@@ -1,10 +1,8 @@
 sqlalchemy
-fastapi
 aiogram
 asyncpg
-alembic
-requests
 beautifulsoup4
 playwright
 chromium
 pydantic-settings
+groq
