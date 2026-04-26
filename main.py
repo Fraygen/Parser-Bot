@@ -73,8 +73,8 @@ async def init_db():
 
 async def main():   
     dp.include_router(router) 
-    asyncio.create_task(check(bot))
     await init_db()
+    asyncio.create_task(check(bot))
     await dp.start_polling(bot)
 
 
