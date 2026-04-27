@@ -16,7 +16,6 @@ async def parse_kwork():
         page.set_default_timeout(60000)
         await page.goto("https://kwork.ru/projects", wait_until="networkidle")
         
-        # ... остальной твой код ...
         
         await asyncio.sleep(3)
 

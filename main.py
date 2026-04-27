@@ -19,7 +19,7 @@ async def check(bot):
 
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         hour = (now_utc.hour + 3) % 24
-        if 0 <= hour <= 9:
+        if hour >= 23 or hour < 12:
             print("Ночной режим...")
             await asyncio.sleep(3600)
             continue
