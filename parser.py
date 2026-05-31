@@ -21,47 +21,46 @@ async def parse_kwork():
         content = await page.content()
         soup = BeautifulSoup(content, 'html.parser')
         
-        # Updated selectors - Kwork changed their HTML structure
-        cards = soup.find_all('div', class_='ProjectCard')
-        if not cards:
-            cards = soup.find_all('div', class_='wants-card')
-        if not cards:
-            cards = soup.find_all('a', class_='wants-card__link')
+        # Correct selector: div with class "want-card want-card--list want-card--hover"
+        cards = soup.find_all('div', class_='want-card')
         
         parsed_info = []
 
         for card in cards:
-            # Try multiple selector paths
-            link_tag = card.find('a', href=True)
-            if not link_tag:
-                link_tag = card if card.name == 'a' else None
-            
+            # Title: h1.wants-card__header-title > a
+            title_tag = card.find('h1', class_='wants-card__header-title')
+            link_tag = title_tag.find('a', href=True) if title_tag else None
             title = link_tag.get_text(strip=True) if link_tag else "Без названия"
             link = "https://kwork.ru" + link_tag.get('href') if link_tag and link_tag.get('href') else "Нет ссылки"
 
-            # Price extraction
-            price_el = card.find('div', class_='wants-card__price') or card.find('span', class_='fs1') or card.find('div', class_='ProjectCard__price')
+            # Price: div.wants-card__price
+            price_el = card.find('div', class_='wants-card__price')
             raw_price = price_el.get_text(strip=True) if price_el else "Цена не указана"
-            price = raw_price.replace("Желаемый бюджет:", "").replace("Бюджет:", "").replace("до", "").replace("Цена", "").replace(":", "").strip()
+            # Clean up price: remove "Цена до:" and extra whitespace
+            price = raw_price.replace("Цена до:", "").replace("₽", "").strip()
 
-            # Description extraction
-            desc_full = card.find('div', class_='overflow-hidden', style=lambda s: s and 'display: none' in s)
-            if not desc_full:
-                desc_full = card.find('div', class_='breakwords')
-            if not desc_full:
-                desc_full = card.find('div', class_='ProjectCard__description')
-            
-            description = desc_full.get_text(separator=' ', strip=True) if desc_full else "Нет описания"
-            description = description.replace("Показать полностью", "").replace("Скрыть", "").strip()
+            # Description: div.wants-card__description-text > div.overflow-hidden > div.d-inline
+            desc_container = card.find('div', class_='wants-card__description-text')
+            description = "Нет описания"
+            if desc_container:
+                # Get the visible description (not hidden)
+                overflow_div = desc_container.find('div', class_='overflow-hidden')
+                if overflow_div:
+                    desc_text = overflow_div.find('div', class_='d-inline')
+                    if desc_text:
+                        description = desc_text.get_text(strip=True)
 
-            # Responses extraction
+            # Responses: span with "Предложений:" text
             responses = "0"
-            mr8 = card.find_all('span', class_='mr8')
-            for span in mr8:
-                txt = span.get_text(strip=True).lower()
-                if "предложен" in txt or "отклик" in txt:
-                    responses = span.get_text(strip=True)
-                    break
+            informers_row = card.find('div', class_='want-card__informers-row')
+            if informers_row:
+                spans = informers_row.find_all('span', class_='mr8')
+                for span in spans:
+                    txt = span.get_text(strip=True)
+                    if "Предложений" in txt:
+                        # Extract number from "Предложений: 0"
+                        responses = txt.split(":")[-1].strip()
+                        break
 
             parsed_info.append({
                 "title": title,
