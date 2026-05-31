@@ -1,6 +1,7 @@
 import asyncio
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
+import re
 
 async def parse_kwork():
     async with async_playwright() as p:
@@ -21,7 +22,7 @@ async def parse_kwork():
         content = await page.content()
         soup = BeautifulSoup(content, 'html.parser')
         
-        # Correct selector: div with class "want-card want-card--list want-card--hover"
+        # Correct selector: div with class "want-card"
         cards = soup.find_all('div', class_='want-card')
         
         parsed_info = []
@@ -33,24 +34,33 @@ async def parse_kwork():
             title = link_tag.get_text(strip=True) if link_tag else "Без названия"
             link = "https://kwork.ru" + link_tag.get('href') if link_tag and link_tag.get('href') else "Нет ссылки"
 
-            # Price: div.wants-card__price
+            # Price: div.wants-card__price > div.d-inline (contains the number)
             price_el = card.find('div', class_='wants-card__price')
-            raw_price = price_el.get_text(strip=True) if price_el else "Цена не указана"
-            # Clean up price: remove "Цена до:" and extra whitespace
-            price = raw_price.replace("Цена до:", "").replace("₽", "").strip()
+            price = "Цена не указана"
+            if price_el:
+                # Get the div.d-inline which contains the price number
+                price_div = price_el.find('div', class_='d-inline')
+                if price_div:
+                    price_text = price_div.get_text(strip=True)
+                    # Remove ₽ symbol and clean whitespace
+                    price = price_text.replace("₽", "").strip()
 
-            # Description: div.wants-card__description-text > div.overflow-hidden > div.d-inline
+            # Description: div.wants-card__description-text > div.overflow-hidden > div.d-inline (first one, not hidden)
             desc_container = card.find('div', class_='wants-card__description-text')
             description = "Нет описания"
             if desc_container:
-                # Get the visible description (not hidden)
-                overflow_div = desc_container.find('div', class_='overflow-hidden')
-                if overflow_div:
-                    desc_text = overflow_div.find('div', class_='d-inline')
-                    if desc_text:
-                        description = desc_text.get_text(strip=True)
+                # Get all overflow-hidden divs
+                overflow_divs = desc_container.find_all('div', class_='overflow-hidden')
+                for overflow_div in overflow_divs:
+                    # Check if it's not hidden (no style="display: none;")
+                    style = overflow_div.get('style', '')
+                    if 'display: none' not in style:
+                        desc_text = overflow_div.find('div', class_='d-inline')
+                        if desc_text:
+                            description = desc_text.get_text(strip=True)
+                            break
 
-            # Responses: span with "Предложений:" text
+            # Responses: span.mr8 containing "Предложений"
             responses = "0"
             informers_row = card.find('div', class_='want-card__informers-row')
             if informers_row:
@@ -58,8 +68,10 @@ async def parse_kwork():
                 for span in spans:
                     txt = span.get_text(strip=True)
                     if "Предложений" in txt:
-                        # Extract number from "Предложений: 0"
-                        responses = txt.split(":")[-1].strip()
+                        # Extract number from "Предложений: 0" (handle &nbsp;)
+                        match = re.search(r'(\d+)', txt)
+                        if match:
+                            responses = match.group(1)
                         break
 
             parsed_info.append({
