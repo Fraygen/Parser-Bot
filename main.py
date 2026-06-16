@@ -27,7 +27,13 @@ async def check(bot):
         await del_old(AsyncSessionLocal)
         time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=3)
         print(f"🔎 {time.strftime('%H:%M:%S')}: Проверяю новые данные...")
-        results = await parse_kwork()
+        try:
+            results = await parse_kwork()
+        except Exception as e:
+            print(f"❌ Ошибка парсера: {type(e).__name__}: {e}")
+            await asyncio.sleep(600)
+            continue
+        print(f"[DEBUG] parse_kwork() вернул {len(results)} заказов")
 
         count = 0
         for item in results:
