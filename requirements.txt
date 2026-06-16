@@ -1,0 +1,8 @@
+sqlalchemy
+aiogram
+asyncpg
+beautifulsoup4
+playwright
+chromium
+pydantic-settings
+groq
