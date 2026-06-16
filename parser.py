@@ -2,7 +2,7 @@ import asyncio
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
-async def parse_kwork():
+async def _parse_kwork_inner():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
@@ -14,12 +14,15 @@ async def parse_kwork():
         page = await context.new_page()
         
         page.set_default_timeout(60000)
+        print("[DEBUG] Открываю страницу...")
         await page.goto("https://kwork.ru/projects", wait_until="domcontentloaded")
-        
+        print("[DEBUG] Страница загружена, жду 5 сек...")
         
         await asyncio.sleep(3)
 
+        print("[DEBUG] Получаю HTML...")
         content = await page.content()
+        print("[DEBUG] Парсю карточки...")
         soup = BeautifulSoup(content, 'html.parser')
         cards = soup.find_all('div', class_='want-card')
         
@@ -59,8 +62,20 @@ async def parse_kwork():
                 "responses": responses
             })
 
+        print(f"[DEBUG] Готово, найдено {len(parsed_info)} карточек")
         await browser.close()
         return parsed_info
+
+
+async def parse_kwork():
+    try:
+        return await asyncio.wait_for(_parse_kwork_inner(), timeout=120)
+    except asyncio.TimeoutError:
+        print("[ERROR] parse_kwork() завис и был прерван по таймауту")
+        return []
+    except Exception as e:
+        print(f"[ERROR] parse_kwork() завершился с ошибкой: {e}")
+        return []
 
 
 if __name__ == "__main__":
