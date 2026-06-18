@@ -13,11 +13,11 @@ async def parse_kwork():
         )
         page = await context.new_page()
         
-        page.set_default_timeout(60000)
-        await page.goto("https://kwork.ru/projects", wait_until="domcontentloaded")
+        page.set_default_timeout(20000)
+        await page.goto("https://kwork.ru/projects", wait_until="commit")
         
         
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
         content = await page.content()
         soup = BeautifulSoup(content, 'html.parser')
